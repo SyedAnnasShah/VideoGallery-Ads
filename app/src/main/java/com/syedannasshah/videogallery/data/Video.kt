@@ -9,6 +9,8 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.appcompat.app.AppCompatActivity
 import com.syedannasshah.videogallery.activities.MainActivity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 data class Video(val id: String, var title: String, val duration: Long = 0, val folderName: String, val size: Long
@@ -17,7 +19,7 @@ data class Video(val id: String, var title: String, val duration: Long = 0, val 
 data class Folder(val id: String, val folderName: String)
 
 @SuppressLint("InlinedApi", "Recycle", "Range")
-fun getAllVideos(context: Context): ArrayList<Video>{
+suspend fun getAllVideos(context: Context): ArrayList<Video> = withContext(Dispatchers.IO) {
 //    val sortEditor = context.getSharedPreferences("Sorting", AppCompatActivity.MODE_PRIVATE)
 //    MainActivity.sortValue = sortEditor.getInt("sortValue", 0)
 
@@ -63,6 +65,7 @@ fun getAllVideos(context: Context): ArrayList<Video>{
                 }catch (e:Exception){}
             }while (cursor.moveToNext())
     cursor?.close()
-    return tempList
+    return@withContext tempList
+
 }
 

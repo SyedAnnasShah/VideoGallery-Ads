@@ -14,6 +14,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup
 import com.google.android.gms.ads.AdError
@@ -27,11 +28,16 @@ import com.syedannasshah.videogallery.adapter.VideoAdapter
 import com.syedannasshah.videogallery.data.Video
 import com.syedannasshah.videogallery.data.getAllVideos
 import com.syedannasshah.videogallery.databinding.ActivityMainBinding
+import com.syedannasshah.videogallery.viewModel.VideoViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 
 class MainActivity : AppCompatActivity(), VideoAdapter.OnItemClickListener {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var videoViewModel: VideoViewModel
 
     lateinit var adapter: VideoAdapter
 
@@ -176,23 +182,48 @@ class MainActivity : AppCompatActivity(), VideoAdapter.OnItemClickListener {
     private fun getVideosAndShow() {
         markPermissionAsAsked()
 
-        videoList = getAllVideos(this)
+        // Initialize ViewModel
+        videoViewModel = ViewModelProvider(this).get(VideoViewModel::class.java)
+
+        // Observe changes in videos LiveData
+        videoViewModel.videos.observe(this, { videos ->
+            adapter.updateList(videos)
+            // Notify adapter of the data change
+            adapter.notifyDataSetChanged()
+        })
+
+        // Trigger fetching videos
+        videoViewModel.getVideos()
 
         binding.VideoRV.setHasFixedSize(true)
         binding.VideoRV.setItemViewCacheSize(10)
         adapter = VideoAdapter(this, videoList)
         var gridLayoutManager = GridLayoutManager(this, 3)
+//        gridLayoutManager.spanSizeLookup = object : SpanSizeLookup() {
+//            override fun getSpanSize(position: Int): Int {
+//                return when (adapter.getItemViewType(position)) {
+//                    0 -> 3
+//                    1 -> 1
+//                    2 -> 3
+//                    else -> 1
+//                }
+//            }
+//        }
+//        binding.VideoRV.setHasFixedSize(true)
+
+
         gridLayoutManager.spanSizeLookup = object : SpanSizeLookup() {
             override fun getSpanSize(position: Int): Int {
                 return when (adapter.getItemViewType(position)) {
-                    0 -> 3
-                    1 -> 1
-                    2 -> 3
-                    else -> 1
+                    0 -> 3 // View type 0 spans the entire row
+                    1 -> 1 // View type 1 takes one-third of the row
+                    2 -> 3 // View type 2 spans the entire row
+                    else -> 1 // Other view types take one-third of the row
                 }
             }
         }
-        binding.VideoRV.setHasFixedSize(true)
+
+
         binding.VideoRV.layoutManager = gridLayoutManager
         adapter.setOnItemClickListener(this)
         binding.VideoRV.adapter = adapter
@@ -200,12 +231,15 @@ class MainActivity : AppCompatActivity(), VideoAdapter.OnItemClickListener {
 
         //for refreshing layout
         binding.root.setOnRefreshListener {
-            videoList = getAllVideos(this)
-            adapter.updateList(videoList)
-            binding.totalVideos.text = "Total Videos: ${videoList.size}"
-            binding.totalVideos.visibility = GONE
+            CoroutineScope(Dispatchers.Main).launch {
+                videoList = getAllVideos(this@MainActivity)
+                adapter.updateList(videoList)
+                binding.totalVideos.text = "Total Videos: ${videoList.size}"
+                binding.totalVideos.visibility = GONE
 
-            binding.root.isRefreshing = false
+                binding.root.isRefreshing = false
+            }
+
         }
     }
 
